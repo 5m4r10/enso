@@ -72,7 +72,7 @@ export function renderCapture() {
     return `<button class="chip" data-act="pick-milestone" data-id="${esc(m.id)}" aria-pressed="${m.id === c.milestoneId}">${lead}${esc(m.title)}${tail}</button>`;
   }).join('') : '';
   return `<div class="capture">
-    <header class="top"><a class="mark" href="#capture">Enso</a><nav><a href="#review">Revisión</a></nav></header>
+    <header class="top"><a class="mark" href="#capture">Ensō</a><nav><a href="#review">Revisión</a></nav></header>
     ${nextBlock(a)}
     <section class="block"><p class="label">Proyecto</p><div class="chips">${projects || '<p class="empty">Crea un proyecto en Revisión.</p>'}</div></section>
     ${c.projectId ? `<section class="block"><p class="label">Hito</p><div class="chips">${ms || '<p class="empty">Sin hitos abiertos</p>'}</div></section>` : ''}

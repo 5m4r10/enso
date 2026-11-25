@@ -374,7 +374,7 @@ test('digest: mails the owner with computeAlerts sections', () => {
   env.ctx.sendWeeklyDigest();
   const mail = env.state.mail[0];
   assert.equal(mail.to, 'owner@example.com');
-  assert.match(mail.subject, /^Enso · 1 vencidos/);
+  assert.match(mail.subject, /^Ensō · 1 vencidos/);
   assert.match(mail.body, /Casa · <Vencido>/);
   assert.match(mail.htmlBody, /&lt;Vencido&gt;/);
   assert.match(mail.body, /Aún no hay revisiones/);

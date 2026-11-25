@@ -12,7 +12,7 @@ function sendWeeklyDigest() {
     milestones: readAll_('milestones').map(clean_),
     logs: snapshotLogs_(readAll_('log'))
   }, today);
-  MailApp.sendEmail({ to: meta.owner_email, subject: d.subject, body: d.text, htmlBody: d.html, name: 'Enso' });
+  MailApp.sendEmail({ to: meta.owner_email, subject: d.subject, body: d.text, htmlBody: d.html, name: 'Ensō' });
 }
 
 /** Pure: snapshot + today → {subject, text, html}. User-facing strings in Spanish. */
@@ -37,7 +37,7 @@ function buildDigest_(snapshot, today) {
   var review = a.last_review_days === null ? 'Aún no hay revisiones registradas.'
     : 'Última revisión hace ' + a.last_review_days + ' d.';
 
-  var subject = 'Enso · ' + a.overdue.length + ' vencidos · ' + a.upcoming.length +
+  var subject = 'Ensō · ' + a.overdue.length + ' vencidos · ' + a.upcoming.length +
     ' próximos · ' + a.stale.length + ' sin movimiento';
 
   var text = sections.map(function (s) {

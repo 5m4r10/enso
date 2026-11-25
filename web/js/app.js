@@ -60,7 +60,7 @@ function render() {
   };
   root.innerHTML = (views[route.name] || renderReview)();
   restore();
-  document.title = route.name === 'capture' ? 'Enso · Captura' : route.name === 'vault' ? 'Enso · Bóveda' : 'Enso';
+  document.title = route.name === 'capture' ? 'Ensō · Captura' : route.name === 'vault' ? 'Ensō · Bóveda' : 'Ensō';
 }
 
 // Background updates wait while text is being typed: replacing the input breaks Android's keyboard.
@@ -440,7 +440,7 @@ function showGate(message = '') {
   const el = document.createElement('div');
   el.id = 'gate';
   el.innerHTML = `<div class="page"><section class="gate">
-    <h1>Enso</h1><p>${esc(message || 'Inicia sesión con tu cuenta de Google para continuar.')}</p>
+    <h1>Ensō</h1><p>${esc(message || 'Inicia sesión con tu cuenta de Google para continuar.')}</p>
     <div class="gis" id="gis"></div>${state.snap ? '<button class="btn-quiet later">Ahora no</button>' : ''}</section></div>`;
   el.querySelector('.later')?.addEventListener('click', () => { hideGate(); cancelSignIn(); });
   document.body.append(el);
@@ -469,7 +469,7 @@ function onNeedSignIn() {
 
 function onForbidden() {
   rejectAccount();
-  showGate('Esta cuenta no es la dueña de Enso.');
+  showGate('Esta cuenta no es la dueña de Ensō.');
 }
 
 async function boot() {
@@ -489,7 +489,7 @@ async function boot() {
   await syncNow();
   if (!had && state.snap) enterVault();
   if (!state.snap && !document.getElementById('gate')) {
-    root.innerHTML = `<div class="page"><section class="gate"><h1>Enso</h1><p class="shu">${esc(sync.error)}</p>
+    root.innerHTML = `<div class="page"><section class="gate"><h1>Ensō</h1><p class="shu">${esc(sync.error)}</p>
       <button class="link-ul" data-act="sync-now">Reintentar</button></section></div>`;
   }
 }

@@ -1,4 +1,4 @@
-# Enso
+# Ensō
 
 Personal project tracker for a single user. PWA (GitHub Pages) + Apps Script API + Google Sheets + Google Calendar.
 
