@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Enso · Captura (mockup)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  body { min-height: 100dvh; }
+  .page {
+    max-width: 440px; min-height: 100dvh; margin: 0 auto;
+    padding: 20px 20px 0 24px;
+    display: flex; flex-direction: column;
+  }
+  .top { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 36px; }
+  .mark { font-weight: 700; font-size: var(--fs-m); }
+  .top a { font-size: var(--fs-s); color: var(--sumi-2); text-decoration: none; }
+
+  .next { padding-bottom: 28px; border-bottom: 1px solid var(--hair); }
+  .next .title { font-size: 24px; font-weight: 700; line-height: 1.2; letter-spacing: -0.015em; margin-top: 8px; }
+  .next .meta { font-size: var(--fs-s); color: var(--sumi-2); margin-top: 4px; }
+  .next-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .next-row .timer { margin-top: 10px; }
+  .next .overdue { font-size: var(--fs-s); color: var(--shu); margin-top: 14px; }
+
+  .block { padding-top: 24px; }
+  .block .label { margin-bottom: 12px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    min-height: 40px; padding: 8px 14px;
+    border: 1px solid var(--hair); border-radius: 999px;
+    font-size: var(--fs-s); line-height: 22px;
+  }
+  .chip.on { background: var(--sumi); border-color: var(--sumi); color: var(--washi); }
+  .chip .d { color: var(--shu); margin-left: 6px; }
+  .chip .timer { margin-right: 4px; vertical-align: -3px; }
+  .chip.on .timer .trace { stroke: #57524c; }
+
+  .note {
+    width: 100%; margin-top: 4px; padding: 10px 0;
+    border: 0; border-bottom: 1px solid var(--hair); background: transparent;
+    font: inherit; font-size: var(--fs-m); color: var(--sumi); outline: none;
+  }
+  .note::placeholder { color: var(--sumi-3); }
+  .note:focus { border-bottom-color: var(--sumi); }
+
+  .actions {
+    position: sticky; bottom: 0; margin-top: auto;
+    padding: 24px 0 calc(20px + env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, rgba(244,239,230,0), var(--washi) 24px);
+  }
+  .primary {
+    width: 100%; min-height: 56px; padding: 0 20px;
+    background: var(--sumi); color: var(--washi);
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: var(--fs-m);
+  }
+  .primary b { font-weight: 700; }
+  .primary span { opacity: .75; font-size: var(--fs-s); }
+  .secondary {
+    display: block; width: 100%; margin-top: 14px; text-align: center;
+    font-size: var(--fs-s); color: var(--sumi-2);
+  }
+  .secondary u { text-decoration: none; border-bottom: 1px solid var(--hair); padding-bottom: 1px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <span class="mark">Enso</span>
+    <a href="review.html">Revisión</a>
+  </header>
+
+  <section class="next">
+    <p class="label">Próximo</p>
+    <div class="next-row">
+      <div>
+        <p class="title">Enviar formato de registro</p>
+        <p class="meta num">Tesis · hoy, quedan 14 h</p>
+      </div>
+      <svg class="timer" data-due="2026-11-23" data-size="44"></svg>
+    </div>
+    <p class="overdue num">2 vencidos · Verificación vehicular, Verificar backups</p>
+  </section>
+
+  <section class="block">
+    <p class="label">Proyecto</p>
+    <div class="chips">
+      <button class="chip">Japonés</button>
+      <button class="chip">Tesis</button>
+      <button class="chip">Casa</button>
+      <button class="chip on">Servidor VPS</button>
+      <button class="chip">Coche</button>
+    </div>
+  </section>
+
+  <section class="block">
+    <p class="label">Hito</p>
+    <div class="chips">
+      <button class="chip on"><svg class="timer" data-due="2026-11-25" data-size="16"></svg> Renovar certificados</button>
+      <button class="chip">Verificar backups <span class="d num">−3 d</span></button>
+    </div>
+  </section>
+
+  <section class="block">
+    <p class="label">Nota</p>
+    <input class="note" type="text" placeholder="Breve, opcional" value="Let's Encrypt renovado en ambos dominios">
+  </section>
+
+  <div class="actions">
+    <button class="primary"><b>Hecho</b><span class="num">próximo vie 25 dic</span></button>
+    <button class="secondary num">o contar desde hoy · <u>mié 23 dic</u></button>
+  </div>
+</div>
+<script src="enso.js"></script>
+</body>
+</html>

@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enso · Revisión (mockup)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .page {
+    max-width: 1240px;
+    padding: 56px 64px 120px 9vw;   /* asymmetric: heavier left margin */
+  }
+  .top {
+    display: flex; align-items: baseline; gap: 24px;
+    margin-bottom: 72px;
+  }
+  .mark { font-weight: 700; font-size: var(--fs-l); letter-spacing: -0.01em; }
+  .top .date { color: var(--sumi-2); font-size: var(--fs-s); }
+  .top nav { margin-left: auto; font-size: var(--fs-s); color: var(--sumi-2); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 272px;
+    column-gap: 112px;
+    align-items: start;
+  }
+
+  /* projects column */
+  .projects .label { margin-bottom: 20px; }
+  .project {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr) 248px;
+    column-gap: 28px;
+    padding: 28px 0 30px;
+    border-top: 1px solid var(--hair);
+  }
+  .project:last-child { border-bottom: 1px solid var(--hair); }
+  .project h3 {
+    font-size: var(--fs-l); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .project h3 .count { font-size: var(--fs-s); font-weight: 400; color: var(--sumi-3); }
+  .project .last { margin-top: 8px; font-size: var(--fs-s); color: var(--sumi-2); max-width: 46ch; }
+  .project .last .when { color: var(--sumi); }
+  .project .last.shu .when { color: var(--shu); }
+
+  .upcoming { font-size: var(--fs-s); padding-top: 4px; }
+  .upcoming li { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; }
+  .upcoming li span:last-child { color: var(--sumi-2); white-space: nowrap; }
+  .upcoming li.shu span:last-child { color: var(--shu); }
+  .upcoming .none { color: var(--sumi-3); }
+  .upcoming .timer { margin-right: 8px; vertical-align: -3px; }
+  .timed li { display: flex; gap: 12px; align-items: flex-start; }
+  .timed li .timer { margin-top: 1px; }
+
+  /* margin column */
+  .margin { padding-top: 0; }
+  .margin .label { margin-bottom: 20px; }
+  .group { padding: 20px 0 22px; border-top: 1px solid var(--hair); }
+  .group h4 { font-size: var(--fs-s); font-weight: 700; margin-bottom: 10px; }
+  .group h4.shu { color: var(--shu); }
+  .group li { font-size: var(--fs-s); padding: 3px 0; }
+  .group li .meta { display: block; color: var(--sumi-2); font-size: var(--fs-xs); }
+  .group li.shu .meta { color: var(--shu); }
+  .group li.shu { color: var(--sumi); }
+
+  .review { margin-top: 56px; padding-top: 24px; border-top: 1px solid var(--sumi); }
+  .review .big { font-size: var(--fs-xl); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; margin: 6px 0 2px; }
+  .review .sub { font-size: var(--fs-s); color: var(--sumi-2); }
+  .btn-line {
+    margin-top: 24px; width: 100%;
+    padding: 12px 16px; border: 1px solid var(--sumi);
+    font-size: var(--fs-s); font-weight: 700; text-align: left;
+    display: flex; justify-content: space-between;
+  }
+  .btn-line:hover { background: var(--sumi); color: var(--washi); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <span class="mark">Enso</span>
+    <span class="date">lunes 23 de noviembre</span>
+    <nav>Captura · Bóveda</nav>
+  </header>
+
+  <div class="grid">
+    <section class="projects">
+      <h2 class="label">Proyectos</h2>
+
+      <article class="project">
+        <svg class="enso" data-progress="0.375"></svg>
+        <div>
+          <h3>Tesis <span class="count num">3/8</span></h3>
+          <p class="last"><span class="when">Hace 2 días</span> — Capítulo 3 enviado a revisión</p>
+        </div>
+        <ul class="upcoming">
+          <li><span>Enviar formato de registro</span><span class="num"><svg class="timer" data-due="2026-11-23" data-size="16"></svg>hoy</span></li>
+          <li><span>Entregar capítulo 4</span><span class="num"><svg class="timer" data-due="2026-11-27" data-size="16"></svg>vie 27 nov</span></li>
+          <li><span>Reunión con asesora</span><span class="num">vie 4 dic</span></li>
+        </ul>
+      </article>
+
+      <article class="project">
+        <svg class="enso" data-progress="0.6667"></svg>
+        <div>
+          <h3>Casa <span class="count num">2/3</span></h3>
+          <p class="last"><span class="when">Hace 5 días</span> — Cotización de impermeabilizante: tres proveedores</p>
+        </div>
+        <ul class="upcoming">
+          <li><span>Pagar predial</span><span class="num"><svg class="timer" data-due="2026-11-30" data-size="16"></svg>lun 30 nov</span></li>
+          <li><span>Impermeabilizar azotea</span><span class="num">mar 15 dic</span></li>
+        </ul>
+      </article>
+
+      <article class="project">
+        <svg class="enso" data-state="overdue"></svg>
+        <div>
+          <h3>Servidor VPS <span class="count">recurrente</span></h3>
+          <p class="last"><span class="when">Hace 10 días</span> — Actualicé nginx a 1.27</p>
+        </div>
+        <ul class="upcoming">
+          <li class="shu"><span>Verificar backups</span><span class="num">hace 3 d</span></li>
+          <li><span>Renovar certificados</span><span class="num"><svg class="timer" data-due="2026-11-25" data-size="16"></svg>mié 25 nov</span></li>
+        </ul>
+      </article>
+
+      <article class="project">
+        <svg class="enso" data-progress="0.5"></svg>
+        <div>
+          <h3>Coche <span class="count num">1/2</span></h3>
+          <p class="last shu"><span class="when">Hace 18 días</span> — sin registro desde la cotización del taller</p>
+        </div>
+        <ul class="upcoming">
+          <li class="shu"><span>Verificación vehicular</span><span class="num">hace 12 d</span></li>
+        </ul>
+      </article>
+
+      <article class="project">
+        <svg class="enso" data-state="ok"></svg>
+        <div>
+          <h3>Japonés <span class="count">recurrente</span></h3>
+          <p class="last"><span class="when">Ayer</span> — Lección 14, kanji de tiempo</p>
+        </div>
+        <ul class="upcoming">
+          <li><span>Repasar kanji</span><span class="num"><svg class="timer" data-due="2026-11-28" data-size="16"></svg>sáb 28 nov</span></li>
+        </ul>
+      </article>
+    </section>
+
+    <aside class="margin">
+      <h2 class="label">Atención</h2>
+
+      <div class="group">
+        <h4 class="shu">Vencidos</h4>
+        <ul>
+          <li class="shu">Verificación vehicular<span class="meta num">Coche · 12 días</span></li>
+          <li class="shu">Verificar backups<span class="meta num">Servidor VPS · 3 días</span></li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <h4>Próximos 7 días</h4>
+        <ul class="timed">
+          <li><svg class="timer" data-due="2026-11-23" data-size="20"></svg><div>Enviar formato de registro<span class="meta num">Tesis · hoy, quedan 14 h</span></div></li>
+          <li><svg class="timer" data-due="2026-11-25" data-size="20"></svg><div>Renovar certificados<span class="meta num">Servidor VPS · en 2 días</span></div></li>
+          <li><svg class="timer" data-due="2026-11-27" data-size="20"></svg><div>Entregar capítulo 4<span class="meta num">Tesis · en 4 días</span></div></li>
+          <li><svg class="timer" data-due="2026-11-28" data-size="20"></svg><div>Repasar kanji<span class="meta num">Japonés · en 5 días</span></div></li>
+          <li><svg class="timer" data-due="2026-11-30" data-size="20"></svg><div>Pagar predial<span class="meta num">Casa · en 7 días</span></div></li>
+        </ul>
+      </div>
+
+      <div class="group">
+        <h4 class="shu">Sin movimiento</h4>
+        <ul>
+          <li class="shu">Coche<span class="meta num">18 días sin registro</span></li>
+        </ul>
+      </div>
+
+      <div class="review">
+        <p class="label">Última revisión</p>
+        <p class="big num">hace 9 días</p>
+        <p class="sub num">sábado 14 de noviembre</p>
+        <button class="btn-line"><span>Registrar revisión</span><span>→</span></button>
+      </div>
+    </aside>
+  </div>
+</div>
+<script src="enso.js"></script>
+</body>
+</html>

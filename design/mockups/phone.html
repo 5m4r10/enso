@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Enso · Captura en 375 px</title>
+<style>
+  html, body { margin: 0; background: #ebe4d8; }
+  body { display: flex; justify-content: center; padding: 24px 0; }
+  iframe { width: 375px; height: 812px; border: 1px solid #d8d0c4; background: #f8f5ef; }
+</style>
+</head>
+<body>
+<iframe id="f" src="capture.html" title="Vista 375x812"></iframe>
+<script>
+  // phone.html?src=vault.html%3Flocked renders any mockup at 375 px
+  var src = new URLSearchParams(location.search).get('src');
+  if (src && /^[a-z]+\.html(\?[a-z]*)?$/.test(src)) document.getElementById('f').src = src;
+</script>
+</body>
+</html>

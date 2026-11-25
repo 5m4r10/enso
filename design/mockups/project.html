@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Enso · Casa (mockup)</title>
+<link rel="stylesheet" href="tokens.css">
+<style>
+  .page { max-width: 1240px; padding: 56px 64px 120px 9vw; }
+  .top { display: flex; align-items: baseline; gap: 24px; margin-bottom: 64px; }
+  .mark { font-weight: 700; font-size: var(--fs-l); letter-spacing: -0.01em; }
+  .top .crumb { color: var(--sumi-2); font-size: var(--fs-s); }
+  .top nav { margin-left: auto; font-size: var(--fs-s); color: var(--sumi-2); }
+
+  .hero { display: flex; align-items: center; gap: 32px; margin-bottom: 72px; }
+  .hero h1 { font-size: 40px; font-weight: 700; line-height: 1.05; letter-spacing: -0.025em; }
+  .hero .meta { margin-top: 10px; font-size: var(--fs-s); color: var(--sumi-2); }
+  .hero .meta span + span::before { content: "·"; margin: 0 8px; color: var(--sumi-3); }
+  .hero .edit { margin-left: auto; align-self: flex-start; font-size: var(--fs-s); color: var(--sumi-2); }
+
+  .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; column-gap: 112px; align-items: start; }
+
+  .section-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+  .section-head button { font-size: var(--fs-s); color: var(--sumi-2); }
+
+  .ms {
+    display: grid; grid-template-columns: minmax(0, 1fr) 104px 136px;
+    column-gap: 24px; align-items: baseline;
+    padding: 22px 0 24px; border-top: 1px solid var(--hair);
+  }
+  .ms h3 { font-size: 18px; font-weight: 700; line-height: 1.3; }
+  .ms .kind { margin-top: 4px; font-size: var(--fs-s); color: var(--sumi-2); }
+  .ms .due { font-size: var(--fs-s); text-align: right; }
+  .ms .due .timer { margin-right: 8px; vertical-align: -4px; }
+  .ms .due small { display: block; font-size: var(--fs-xs); color: var(--sumi-2); }
+  .ms .acts { display: flex; justify-content: flex-end; gap: 16px; font-size: var(--fs-s); }
+  .ms .acts .do { font-weight: 700; border-bottom: 1px solid var(--sumi); padding-bottom: 1px; }
+  .ms .acts .alt { color: var(--sumi-2); }
+  .list-end { border-top: 1px solid var(--hair); }
+
+  .done-head { margin-top: 56px; }
+  .ms.is-done h3 { font-weight: 400; color: var(--sumi-2); }
+  .ms.is-done .due { color: var(--sumi-2); }
+
+  /* margin: log */
+  .compose { border-bottom: 1px solid var(--sumi); display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+  .compose input { flex: 1; border: 0; background: none; font: inherit; font-size: var(--fs-s); padding: 10px 0; color: var(--sumi); outline: none; }
+  .compose input::placeholder { color: var(--sumi-3); }
+  .compose button { font-size: var(--fs-s); font-weight: 700; }
+
+  .log li { padding: 16px 0; border-bottom: 1px solid var(--hair); font-size: var(--fs-s); }
+  .log .when { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--sumi-2); margin-bottom: 4px; }
+  .log .type { letter-spacing: 0.06em; text-transform: uppercase; }
+  .log .sys { color: var(--sumi-2); }
+
+  .vault-link { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--sumi); display: flex; justify-content: space-between; font-size: var(--fs-s); }
+  .vault-link b { font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="top">
+    <span class="mark">Enso</span>
+    <span class="crumb">← Proyectos</span>
+    <nav>Captura · Bóveda</nav>
+  </header>
+
+  <section class="hero">
+    <svg class="enso" data-progress="0.6667" data-size="96"></svg>
+    <div>
+      <h1>Casa</h1>
+      <p class="meta num"><span>2 de 3 hitos</span><span>último registro hace 5 días</span><span>sin movimiento a los 14 días</span></p>
+    </div>
+    <button class="edit">Editar proyecto</button>
+  </section>
+
+  <div class="grid">
+    <section>
+      <div class="section-head">
+        <h2 class="label">Hitos abiertos</h2>
+        <button>+ Nuevo hito</button>
+      </div>
+
+      <article class="ms">
+        <div>
+          <h3>Pagar predial</h3>
+          <p class="kind">Cada mes · fecha fija · hecho mié 28 oct</p>
+        </div>
+        <p class="due num"><svg class="timer" data-due="2026-11-30" data-size="18"></svg>lun 30 nov<small>en 7 días</small></p>
+        <div class="acts"><button class="do">Hecho</button><button class="alt">Editar</button></div>
+      </article>
+
+      <article class="ms">
+        <div>
+          <h3>Impermeabilizar azotea</h3>
+          <p class="kind">Una vez · reprogramado el lun 16 nov</p>
+        </div>
+        <p class="due num">mar 15 dic<small>en 22 días</small></p>
+        <div class="acts"><button class="do">Hecho</button><button class="alt">Editar</button></div>
+      </article>
+      <div class="list-end"></div>
+
+      <div class="section-head done-head">
+        <h2 class="label">Hechos</h2>
+      </div>
+      <article class="ms is-done">
+        <div>
+          <h3>Cambiar boiler</h3>
+          <p class="kind">Una vez</p>
+        </div>
+        <p class="due num">lun 2 nov</p>
+        <div class="acts"><button class="alt">Reabrir</button></div>
+      </article>
+      <div class="list-end"></div>
+    </section>
+
+    <aside>
+      <h2 class="label" style="margin-bottom:16px">Registro</h2>
+      <div class="compose">
+        <input type="text" placeholder="Añadir nota…">
+        <button>Guardar</button>
+      </div>
+      <ul class="log">
+        <li>
+          <p class="when num"><span>mié 18 nov</span><span class="type">Nota</span></p>
+          Cotización de impermeabilizante: tres proveedores
+        </li>
+        <li>
+          <p class="when num"><span>lun 16 nov</span><span class="type">Reprogramado</span></p>
+          <span class="sys num">Impermeabilizar azotea · 30 nov → 15 dic</span>
+        </li>
+        <li>
+          <p class="when num"><span>lun 2 nov</span><span class="type">Hecho</span></p>
+          Cambiar boiler
+        </li>
+        <li>
+          <p class="when num"><span>mié 28 oct</span><span class="type">Hecho</span></p>
+          Pagar predial <span class="sys num">· próximo 30 nov</span>
+        </li>
+        <li>
+          <p class="when num"><span>mar 20 oct</span><span class="type">Nota</span></p>
+          Revisé el recibo del agua; la fuga quedó resuelta
+        </li>
+      </ul>
+
+      <div class="vault-link"><span><b>Bóveda</b> · 2 entradas de Casa</span><span>→</span></div>
+    </aside>
+  </div>
+</div>
+<script src="enso.js"></script>
+</body>
+</html>

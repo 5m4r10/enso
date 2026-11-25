@@ -1,0 +1,64 @@
+/* Design tokens for the mockups (will move to web/styles.css once approved). */
+@import url("../../web/fonts/fonts.css");
+
+:root {
+  --washi: #f8f5ef;        /* background, warm off-white */
+  --washi-deep: #ebe4d8;   /* pressed / selected surfaces */
+  --sumi: #1e1c1a;         /* text */
+  --sumi-2: #6f6a63;       /* secondary text */
+  --sumi-3: #a39d94;       /* tertiary, placeholders */
+  --hair: #d8d0c4;         /* 1px hairlines */
+  --shu: #c43d29;          /* vermilion: overdue / stale only */
+
+  /* TeX Gyre Heros first: Windows maps "Helvetica" to Arial and Android maps it to Roboto,
+     so the spec's original order never reached the self-hosted font (measured in Chrome/Win). */
+  --font: "TeX Gyre Heros", "Helvetica Neue", Helvetica, sans-serif;
+  --fs-xs: 12px;
+  --fs-s: 14px;
+  --fs-m: 16px;
+  --fs-l: 20px;
+  --fs-xl: 32px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  background: var(--washi);
+  color: var(--sumi);
+  font-family: var(--font);
+  font-size: var(--fs-m);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  font-kerning: normal;
+}
+
+ul { list-style: none; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+.label {
+  font-size: var(--fs-xs);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--sumi-2);
+}
+
+.shu { color: var(--shu); }
+/* Vermilion marks the number/date, not the whole item. */
+li.shu { color: inherit; }
+.muted { color: var(--sumi-2); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Ensō ring (drawn by enso.js) */
+.enso { display: block; flex: none; }
+.enso .trace { fill: none; stroke: var(--hair); stroke-width: 1; }
+.enso .ink { fill: var(--sumi); stroke: none; }
+.enso.is-overdue .ink { fill: var(--shu); }
+
+/* Temporal ensō (timer) */
+.timer { display: inline-block; flex: none; vertical-align: -4px; }
+.timer .trace { fill: none; stroke: var(--hair); stroke-width: 1; }
+.timer .ink { fill: var(--shu); stroke: none; }
+.timer .dot { fill: var(--shu); }
