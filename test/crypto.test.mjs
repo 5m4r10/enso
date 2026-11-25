@@ -41,6 +41,20 @@ test('fresh iv every time; key not extractable; weak KDF refused', async () => {
   await assert.rejects(c.unlockVault(PASS, { ...kdf, iterations: 1000 }, verifier));
 });
 
+test('device unlock: wrap and unwrap the key; wrong secret, id or blob rejected', async () => {
+  const r = await c.unlockWithRaw(PASS, kdf, verifier);
+  const secret = crypto.getRandomValues(new Uint8Array(32));
+  const rec = { id: 'Y3JlZA==', ...(await c.wrapRaw(secret, r.raw, 'Y3JlZA==')) };
+  const raw = await c.unwrapRaw(secret, rec);
+  assert.deepEqual(raw, r.raw);
+  const row = { id: ID, ...(await c.encryptItem(key, ID, item)) };
+  assert.deepEqual(await c.decryptItem(await c.keyFromRaw(raw, verifier), row), item);
+  await assert.rejects(c.unwrapRaw(crypto.getRandomValues(new Uint8Array(32)), rec));
+  await assert.rejects(c.unwrapRaw(secret, { ...rec, id: 'b3Rybw==' }));
+  await assert.rejects(c.unwrapRaw(secret, { ...rec, ct: flip(rec.ct) }));
+  assert.equal(await c.keyFromRaw(new Uint8Array(32), verifier), null);
+});
+
 test('init payload satisfies the server validation', () => {
   const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
   for (const k of ['kdf_salt', 'verifier_ct', 'verifier_iv']) assert.match(init[k], B64);

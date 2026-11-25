@@ -22,12 +22,13 @@ export function toB64(bytes) {
 
 export const fromB64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
-async function deriveKey(passphrase, salt, iterations) {
+async function deriveRaw(passphrase, salt, iterations) {
   // NFKC: the same phrase typed on Windows and Android must give the same bytes.
-  const material = await crypto.subtle.importKey('raw', enc.encode(passphrase.normalize('NFKC')), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, material,
-    { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+  const material = await crypto.subtle.importKey('raw', enc.encode(passphrase.normalize('NFKC')), 'PBKDF2', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, material, 256));
 }
+
+const importKey = (raw) => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 
 async function seal(key, text, aad) {
   const iv = crypto.getRandomValues(new Uint8Array(12)); // fresh for every encryption
@@ -43,21 +44,60 @@ async function open(key, ct, iv, aad) {
 /** New vault: {key, init} where init is the vaultInit payload. */
 export async function createVault(passphrase, iterations = KDF_ITERATIONS) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const key = await deriveKey(passphrase, salt, iterations);
+  const raw = await deriveRaw(passphrase, salt, iterations);
+  const key = await importKey(raw);
+  raw.fill(0);
   const v = await seal(key, VERIFIER_TEXT, VERIFIER_AAD);
   return { key, init: { kdf_salt: toB64(salt), kdf_iterations: iterations, verifier_ct: v.ct, verifier_iv: v.iv } };
 }
 
-/** Key, or null when the passphrase is wrong. Throws on unacceptable KDF parameters. */
-export async function unlockVault(passphrase, kdf, verifier) {
-  const n = Number(kdf.iterations);
-  if (!Number.isInteger(n) || n < MIN_ITERATIONS || n > MAX_ITERATIONS) throw new Error('Parámetros de cifrado no válidos en el servidor');
-  const key = await deriveKey(passphrase, fromB64(kdf.salt), n);
+/** Key for these bytes, or null when they do not open this vault. */
+export async function keyFromRaw(raw, verifier) {
+  const key = await importKey(raw);
   try {
     return (await open(key, verifier.ct, verifier.iv, VERIFIER_AAD)) === VERIFIER_TEXT ? key : null;
   } catch (_) {
     return null;
   }
+}
+
+/** {key, raw}, or null when the passphrase is wrong; the caller wipes raw. Throws on weak KDF parameters. */
+export async function unlockWithRaw(passphrase, kdf, verifier) {
+  const n = Number(kdf.iterations);
+  if (!Number.isInteger(n) || n < MIN_ITERATIONS || n > MAX_ITERATIONS) throw new Error('Parámetros de cifrado no válidos en el servidor');
+  const raw = await deriveRaw(passphrase, fromB64(kdf.salt), n);
+  const key = await keyFromRaw(raw, verifier);
+  if (key) return { key, raw };
+  raw.fill(0);
+  return null;
+}
+
+/** Key, or null when the passphrase is wrong. */
+export async function unlockVault(passphrase, kdf, verifier) {
+  const r = await unlockWithRaw(passphrase, kdf, verifier);
+  r?.raw.fill(0);
+  return r ? r.key : null;
+}
+
+/* Device unlock: the vault key encrypted with a secret only the authenticator can produce. */
+
+async function deviceKey(secret) {
+  const ikm = await crypto.subtle.importKey('raw', secret, 'HKDF', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: enc.encode('enso:v1:device-unlock') },
+    ikm, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+
+const deviceAad = (id) => enc.encode(`enso:v1:device:${id}`);
+
+export async function wrapRaw(secret, raw, id) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData: deviceAad(id) }, await deviceKey(secret), raw);
+  return { ct: toB64(ct), iv: toB64(iv) };
+}
+
+export async function unwrapRaw(secret, r) {
+  return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(r.iv), additionalData: deviceAad(r.id) },
+    await deviceKey(secret), fromB64(r.ct)));
 }
 
 export async function encryptItem(key, id, { kind, label, value }) {

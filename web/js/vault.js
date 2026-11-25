@@ -1,6 +1,7 @@
 // Vault session: key and plaintext live only in this module's memory, dropped on lock.
 import { call } from './api.js';
-import { createVault, unlockVault, encryptItem, decryptItem } from './crypto.js';
+import { createVault, unlockWithRaw, keyFromRaw, encryptItem, decryptItem } from './crypto.js';
+import * as bio from './biometric.js';
 
 export const IDLE_MS = 5 * 60000;
 export const CLIP_MS = 30000;
@@ -17,6 +18,8 @@ let onLock = () => {};
 export const vault = {
   status: 'unloaded',   // unloaded | loading | failed | uninit | locked | open
   working: false,       // deriving the key
+  bio: { supported: false, enrolled: false },
+  usePass: false,       // passphrase form chosen although biometrics are enabled
   error: '',
   items: [],            // decrypted {id, project_id, kind, label, value} | {id, project_id, broken: true}
   revealed: new Set(),
@@ -52,6 +55,7 @@ export function lock(reason = 'user') {
   vault.filter = 'all';
   vault.error = '';
   vault.status = 'locked';
+  vault.usePass = false;
   onLock(reason);
 }
 
@@ -68,7 +72,8 @@ export async function loadVault() {
   vault.status = 'loading';
   vault.error = '';
   try {
-    await fetchList();
+    const [supported, enrolled] = await Promise.all([bio.supported(), bio.enrolled(), fetchList()]);
+    vault.bio = { supported, enrolled };
     vault.status = verifier ? 'locked' : 'uninit';
   } catch (e) {
     vault.status = 'failed';
@@ -92,22 +97,64 @@ async function openWith(k) {
   vault.status = 'open';
 }
 
-export async function unlock(passphrase) {
+/** Enables biometrics with the key at hand. Never blocks the vault; returns an error text or ''. */
+async function tryEnroll(raw) {
+  try {
+    await bio.enroll(raw);
+    vault.bio.enrolled = true;
+    return '';
+  } catch (e) {
+    if (e.code === 'unsupported') vault.bio.supported = false;
+    return `No se activó la huella. ${bio.explain(e)}`;
+  }
+}
+
+/** Both return a notice to show ('' if none). */
+export async function unlock(passphrase, withBio) {
   vault.working = true;
   vault.error = '';
+  let r = null;
   try {
-    const k = await unlockVault(passphrase, kdf, verifier);
-    if (k) await openWith(k);
-    else vault.error = 'La frase no es correcta.';
+    r = await unlockWithRaw(passphrase, kdf, verifier);
+    if (!r) {
+      vault.error = 'La frase no es correcta.';
+      return '';
+    }
+    await openWith(r.key);
+    return withBio ? await tryEnroll(r.raw) : '';
   } catch (e) {
     vault.error = e.message;
+    return '';
   } finally {
+    r?.raw.fill(0);
     vault.working = false;
   }
 }
 
+export async function unlockBio() {
+  vault.working = true;
+  vault.error = '';
+  let raw = null;
+  try {
+    raw = await bio.unlockRaw();
+    const k = await keyFromRaw(raw, verifier);
+    if (!k) throw Object.assign(new Error('La huella ya no abre esta bóveda; usa la frase'), { code: 'gone' });
+    await openWith(k);
+  } catch (e) {
+    vault.error = bio.explain(e);
+    if (e.code === 'gone') await removeBio();
+  } finally {
+    raw?.fill(0);
+    vault.working = false;
+  }
+}
+
+export async function removeBio() {
+  try { await bio.remove(); } finally { vault.bio.enrolled = await bio.enrolled(); }
+}
+
 /** First use. The stored verifier is read back and opened, so a bad write is noticed while empty. */
-export async function create(passphrase) {
+export async function create(passphrase, withBio) {
   vault.working = true;
   vault.error = '';
   try {
@@ -118,17 +165,15 @@ export async function create(passphrase) {
       if (e.code !== 'conflict') throw e; // conflict: an earlier attempt or another device got there first
     }
     await fetchList();
-    const k = await unlockVault(passphrase, kdf, verifier);
-    if (k) await openWith(k);
-    else {
-      vault.status = 'locked';
-      vault.error = 'La bóveda ya existía con otra frase.';
-    }
+    vault.status = 'locked';
   } catch (e) {
     vault.error = e.message;
-  } finally {
     vault.working = false;
+    return '';
   }
+  const notice = await unlock(passphrase, withBio);
+  if (vault.error === 'La frase no es correcta.') vault.error = 'La bóveda ya existía con otra frase.';
+  return notice;
 }
 
 export async function saveItem({ id, project_id, kind, label, value }) {

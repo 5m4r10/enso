@@ -9,7 +9,7 @@ import { renderReview } from './views/review.js';
 import { renderCapture } from './views/capture.js';
 import { renderProject } from './views/project.js';
 import { renderVault, idleText, copiedText } from './views/vault.js';
-import { vault, initVault, loadVault, unlock, create, lock, saveItem, deleteItem, copyItem, itemById } from './vault.js';
+import { vault, initVault, loadVault, unlock, unlockBio, removeBio, create, lock, saveItem, deleteItem, copyItem, itemById } from './vault.js';
 import { MIN_PASSPHRASE } from './crypto.js';
 import { readForm } from './views/forms.js';
 
@@ -29,7 +29,7 @@ function parseRoute() {
 function keepForms() {
   const key = (form) => `${form.dataset.form}/${form.dataset.id || ''}/${form.dataset.project || ''}`;
   const saved = new Map([...root.querySelectorAll('form[data-form]')].map((form) =>
-    [key(form), [...form.elements].filter((el) => el.name).map((el) => [el.name, el.value])]));
+    [key(form), [...form.elements].filter((el) => el.name).map((el) => [el.name, el.type === 'checkbox' ? el.checked : el.value])]));
   const a = document.activeElement;
   const focus = a && root.contains(a) && (a.name || a.dataset.bind)
     ? { name: a.name, bind: a.dataset.bind, form: a.form ? key(a.form) : null, pos: a.type === 'text' ? a.selectionStart : null } : null;
@@ -37,7 +37,8 @@ function keepForms() {
     let target = focus?.bind ? root.querySelector(`[data-bind="${focus.bind}"]`) : null;
     for (const form of root.querySelectorAll('form[data-form]')) {
       for (const [name, value] of saved.get(key(form)) || []) {
-        if (form.elements[name]) form.elements[name].value = value;
+        const el = form.elements[name];
+        if (el) el[typeof value === 'boolean' ? 'checked' : 'value'] = value;
       }
       form.querySelector('[data-act-change]')?.dispatchEvent(new Event('change', { bubbles: true }));
       if (focus?.form === key(form) && focus.name) target = form.elements[focus.name];
@@ -214,6 +215,19 @@ function focusPassphrase() {
 
 Object.assign(clicks, {
   'vault-retry': () => enterVault(),
+  'vault-bio': async () => {
+    if (vault.working) return;
+    const p = unlockBio();
+    render();
+    await p;
+    render();
+  },
+  'vault-use-pass': () => { vault.usePass = true; vault.error = ''; render(); document.getElementById('pp')?.focus(); },
+  'vault-remove-bio': async () => {
+    if (!window.confirm('¿Quitar la huella en este dispositivo? Se abrirá de nuevo con la frase.')) return;
+    try { await removeBio(); toast('Huella quitada'); } catch (_) { toast('No se pudo quitar', true); }
+    render();
+  },
   'vault-lock': () => lock('user'),
   'vault-new': () => { state.ui.form = { type: 'vault', id: null }; render(); },
   'vault-edit': (el) => { state.ui.form = { type: 'vault', id: el.dataset.id }; render(); },
@@ -236,16 +250,17 @@ Object.assign(clicks, {
 /** Passphrase fields are emptied as soon as they are read. */
 async function submitPassphrase(form, type) {
   if (vault.working) return;
-  const pass = form.pass.value, pass2 = form.pass2?.value;
+  const pass = form.pass.value, pass2 = form.pass2?.value, withBio = !!form.elements.bio?.checked;
   if (type === 'vault-create') {
     vault.error = pass.normalize('NFKC').length < MIN_PASSPHRASE ? `Usa al menos ${MIN_PASSPHRASE} caracteres.`
       : pass !== pass2 ? 'Las frases no coinciden.' : '';
     if (vault.error) { form.reset(); render(); focusPassphrase(); return; }
   }
   form.reset();
-  const p = type === 'vault-create' ? create(pass) : unlock(pass);
+  const p = type === 'vault-create' ? create(pass, withBio) : unlock(pass, withBio);
   render();
-  await p;
+  const notice = await p;
+  if (notice) toast(notice, true);
   render();
   focusPassphrase();
 }
@@ -276,8 +291,8 @@ setInterval(() => {
 }, 1000);
 
 root.addEventListener('click', (e) => {
-  const el = e.target.closest('[data-act]');
-  if (el && clicks[el.dataset.act]) {
+  const el = e.target.closest('[data-act], a[href]');
+  if (el?.dataset.act && clicks[el.dataset.act]) {
     e.preventDefault();
     clicks[el.dataset.act](el);
   }

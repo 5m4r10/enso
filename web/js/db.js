@@ -1,4 +1,5 @@
-// IndexedDB: the capture queue and the last server snapshot. Vault data never comes near this file.
+// IndexedDB: the capture queue, the last server snapshot and, if enabled, the vault key
+// encrypted for this device's authenticator (biometric.js). Vault contents are never stored.
 import { MOCK } from '../config.js';
 
 let opening = null;
@@ -31,6 +32,9 @@ async function tx(stores, mode, fn) {
 }
 
 export const getSnapshot = () => tx(['kv'], 'readonly', (t) => t.objectStore('kv').get('snapshot'));
+export const getDevice = () => tx(['kv'], 'readonly', (t) => t.objectStore('kv').get('device-unlock'));
+export const putDevice = (r) => tx(['kv'], 'readwrite', (t) => { t.objectStore('kv').put(r, 'device-unlock'); });
+export const deleteDevice = () => tx(['kv'], 'readwrite', (t) => { t.objectStore('kv').delete('device-unlock'); });
 export const getEntries = () => tx(['queue'], 'readonly', (t) => t.objectStore('queue').getAll());
 export const putEntries = (list) => tx(['queue'], 'readwrite', (t) => { list.forEach((e) => t.objectStore('queue').put(e)); });
 export const deleteEntry = (id) => tx(['queue'], 'readwrite', (t) => { t.objectStore('queue').delete(id); });

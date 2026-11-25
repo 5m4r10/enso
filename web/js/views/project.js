@@ -4,6 +4,7 @@ import { esc, fmtShort, inDays, agoDays, kindLabel } from '../format.js';
 import { ensoSVG, timerSVG, seedOf } from '../enso.js';
 import { state, projectById, milestonesOf, openByDue, projectRing, lastActivityDays, timer, today, milestoneById } from '../store.js';
 import { pendingDone, sync } from '../sync.js';
+import { keepLink } from '../links.js';
 import { header } from './shell.js';
 import { projectForm, milestoneForm } from './forms.js';
 
@@ -93,7 +94,7 @@ export function renderProject(id) {
       <div><h1>${esc(p.name)}</h1>
         <p class="meta num"><span>${esc(counts)}</span><span>último registro ${esc(agoDays(idle ?? 0))}</span><span>sin movimiento a los ${p.stale_days || DEFAULT_STALE} días</span></p>
       </div>
-      <button class="btn-quiet edit" data-act="edit-project" data-id="${esc(p.id)}">Editar proyecto</button>
+      <div class="tools">${keepLink(p.name)}<button class="btn-quiet" data-act="edit-project" data-id="${esc(p.id)}">Editar proyecto</button></div>
     </section>`}
     <div class="grid project-grid">
       <section>

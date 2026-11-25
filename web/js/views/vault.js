@@ -3,6 +3,7 @@ import { esc } from '../format.js';
 import { state, projects, activeProjects, projectById } from '../store.js';
 import { vault, idleLeftMs, itemById } from '../vault.js';
 import { MIN_PASSPHRASE } from '../crypto.js';
+import { bitwardenLink } from '../links.js';
 import { header } from './shell.js';
 
 const KIND = { ref: 'Referencia', secret: 'Secreto' };
@@ -20,6 +21,13 @@ export function copiedText() {
 function lockBox() {
   const creating = vault.status === 'uninit';
   const dis = vault.working ? ' disabled' : '';
+  const err = vault.error ? `<p class="err" role="alert">${esc(vault.error)}</p>` : '';
+  if (!creating && vault.bio.enrolled && !vault.usePass) {
+    return `<section class="lock-box"><h1>Bóveda cerrada</h1>
+      <p>Ábrela con la huella, el rostro o el PIN de este dispositivo.</p>${err}
+      <button class="primary bio" data-act="vault-bio"${dis}><b>${vault.working ? 'Abriendo…' : 'Abrir'}</b><span>→</span></button>
+      <button class="btn-quiet alt" data-act="vault-use-pass"${dis}>Usar la frase maestra</button></section>`;
+  }
   const button = vault.working ? (creating ? 'Creando…' : 'Abriendo…') : creating ? 'Crear bóveda' : 'Abrir';
   return `<form class="lock-box" data-form="${creating ? 'vault-create' : 'vault-unlock'}">
     <h1>${creating ? 'Crear la bóveda' : 'Bóveda cerrada'}</h1>
@@ -28,7 +36,8 @@ function lockBox() {
     <input id="pp" name="pass" type="password" required${creating ? ` minlength="${MIN_PASSPHRASE}"` : ''} autocomplete="${creating ? 'new' : 'current'}-password"${dis}>
     ${creating ? `<label class="label second" for="pp2">Repite la frase</label>
     <input id="pp2" name="pass2" type="password" required autocomplete="new-password"${dis}>` : ''}
-    ${vault.error ? `<p class="err" role="alert">${esc(vault.error)}</p>` : ''}
+    ${vault.bio.supported && !vault.bio.enrolled ? `<label class="check"><input name="bio" type="checkbox" checked${dis}> Abrir después con la huella en este dispositivo</label>` : ''}
+    ${err}
     <button class="primary" type="submit"${dis}><b>${button}</b><span>→</span></button>
     <p class="fine">La frase no se guarda en ningún sitio y no se puede recuperar. Si la pierdes, el contenido de la bóveda se pierde con ella.</p>
   </form>`;
@@ -99,7 +108,7 @@ function unlocked() {
   return `<div class="vault">
     <section class="head">
       <div><h1>Bóveda</h1><p class="state num" data-idle>${esc(idleText())}</p></div>
-      <div class="right"><button class="btn-quiet" data-act="vault-lock">Cerrar ahora</button>
+      <div class="right">${bitwardenLink()}<button class="btn-quiet" data-act="vault-lock">Cerrar ahora</button>
         <button class="btn-line" data-act="vault-new">+ Nueva entrada</button></div>
     </section>
     ${f?.type === 'vault' && !itemById(f.id) ? itemForm(null) : ''}
@@ -107,7 +116,7 @@ function unlocked() {
       <input type="text" data-bind="vault-query" placeholder="Buscar" aria-label="Buscar" autocomplete="off" value="${esc(vault.query)}"></div>` : ''}
     ${groups || `<p class="empty">${empty}</p>`}
     <p class="foot">Las credenciales críticas (root, llaves SSH, APIs de producción) viven en tu gestor de contraseñas; aquí solo su referencia.
-      Todo se cifra en este dispositivo antes de salir; el servidor guarda bloques opacos.</p>
+      Todo se cifra en este dispositivo antes de salir; el servidor guarda bloques opacos.${vault.bio.enrolled ? ' <button class="link-ul" data-act="vault-remove-bio">Quitar la huella en este dispositivo</button>' : ''}</p>
   </div>`;
 }
 
