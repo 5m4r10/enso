@@ -1,6 +1,7 @@
 // #capture — mobile: next alert, project chips (recent first), milestone chips, note, dual button.
 /* global dueOf, daysBetween, previewCompletion */
 import { esc, fmtShort, inDays, hoursLeft } from '../format.js';
+import { pendingDone } from '../sync.js';
 import { timerSVG, seedOf } from '../enso.js';
 import { state, alerts, recentProjects, openByDue, projectById, milestoneById, timer, today } from '../store.js';
 
@@ -40,7 +41,7 @@ function nextBlock(a) {
 function actions() {
   const c = state.ui.capture;
   const m = c.milestoneId ? milestoneById(c.milestoneId) : null;
-  const busy = state.ui.busy || state.ui.saving.has(c.milestoneId) ? ' disabled' : '';
+  const busy = state.ui.busy || (c.milestoneId && pendingDone(c.milestoneId) === today()) ? ' disabled' : '';
   if (!m) {
     const empty = !c.note.trim();
     return `<div class="actions"><button class="primary" data-act="save-note"${empty || busy ? ' disabled' : ''}><b>Guardar nota</b><span></span></button></div>`;

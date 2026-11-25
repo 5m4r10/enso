@@ -6,20 +6,15 @@ import { nowLocalIso } from './format.js';
 export const state = {
   snap: null,          // {today, projects, milestones, logs}
   now: nowLocalIso(),
+  pendingLogs: [],     // captures the server snapshot does not contain yet
   projectLogs: {},     // project_id → logs[] (projectLog)
   ui: {
     capture: { projectId: null, milestoneId: null, note: '' },
     confirmMilestone: null,   // milestone id with the inline completion choice open
     form: null,               // {type:'project'|'milestone', id|null, projectId?}
-    saving: new Set(),        // milestone ids completed on screen, not yet confirmed by the server
     busy: false
   }
 };
-
-export async function refresh() {
-  state.snap = await call('snapshot');
-  state.now = nowLocalIso();
-}
 
 export async function loadProjectLog(projectId) {
   const r = await call('projectLog', { project_id: projectId });

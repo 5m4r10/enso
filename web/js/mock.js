@@ -96,9 +96,11 @@ const handlers = {
     return { logs, total: logs.length };
   },
   capture: ({ entries }) => {
-    const accepted = [], duplicates = [];
-    for (const e of entries) (applyEntry(e).dup ? duplicates : accepted).push(e.id);
-    return { accepted, duplicates, rejected: [], milestones: [] };
+    const accepted = [], duplicates = [], rejected = [];
+    for (const e of entries) {
+      try { (applyEntry(e).dup ? duplicates : accepted).push(e.id); } catch (err) { rejected.push({ id: e.id, code: err.code, error: err.message }); }
+    }
+    return { accepted, duplicates, rejected, milestones: [] };
   },
   complete: (p) => {
     const r = applyEntry({ id: p.id, ts_client: p.ts_client, type: 'done', milestone_id: p.milestone_id, note: p.note, meta: p.anchor ? { anchor: p.anchor } : null });
@@ -153,7 +155,11 @@ const handlers = {
 export async function mockCall(action, payload) {
   // ?latency=3000 imitates Apps Script response times.
   await new Promise((r) => setTimeout(r, Number(new URLSearchParams(location.search).get('latency')) || 120));
+  // Test hooks: window.mockFault = 'offline' | 'lost' (applied, but the answer never arrives).
+  if (window.mockFault === 'offline') fail('network', 'Sin conexión (simulada)');
   const h = handlers[action];
   if (!h) fail('bad_request', 'Unknown action: ' + action);
-  return clone(h(payload));
+  const out = clone(h(payload));
+  if (window.mockFault === 'lost' && action === 'capture') fail('network', 'Respuesta perdida (simulada)');
+  return out;
 }

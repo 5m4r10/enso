@@ -1,10 +1,10 @@
 // Router, events and boot. Views are pure HTML renderers; all events are delegated here.
-/* global completeMilestone */
 import { MOCK } from '../config.js';
-import { initAuth, rejectAccount, renderSignInButton } from './auth.js';
+import { initAuth, rejectAccount, renderSignInButton, cancelSignIn } from './auth.js';
 import { call } from './api.js';
-import { state, refresh, loadProjectLog, milestoneById, today } from './store.js';
-import { nowLocalIso, uuid, esc } from './format.js';
+import { state, loadProjectLog, milestoneById, today } from './store.js';
+import { sync, initSync, runSync, record, discard, flush, isSyncing, pendingEntries, failedEntries, pendingDone } from './sync.js';
+import { nowLocalIso, uuid, esc, fmtShort } from './format.js';
 import { renderReview } from './views/review.js';
 import { renderCapture } from './views/capture.js';
 import { renderProject } from './views/project.js';
@@ -63,6 +63,15 @@ function render() {
   document.title = route.name === 'capture' ? 'Enso · Captura' : route.name === 'vault' ? 'Enso · Bóveda' : 'Enso';
 }
 
+// Background updates wait while text is being typed: replacing the input breaks Android's keyboard.
+let stale = false;
+function softRender() {
+  const a = document.activeElement;
+  stale = !!a && root.contains(a) && a.tagName === 'INPUT' && a.value !== '';
+  if (!stale) render();
+}
+root.addEventListener('focusout', () => setTimeout(() => { if (stale) softRender(); }));
+
 function toast(msg, isError = false, sticky = false) {
   let el = document.querySelector('.toast');
   if (!el) {
@@ -77,8 +86,7 @@ function toast(msg, isError = false, sticky = false) {
   if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, isError ? 6000 : 2500);
 }
 
-// Apps Script takes seconds per call. Writes run one at a time; the snapshot and the log are
-// re-read (in parallel) only when no write is left, so a refresh never undoes a pending change.
+// Online-only edits (projects, milestones, vault) run one at a time.
 let pending = 0;
 let tail = Promise.resolve();
 
@@ -89,27 +97,15 @@ function enqueue(fn) {
   return run;
 }
 
-async function reload() {
-  if (pending) return;
-  if (route.name !== 'project') state.projectLogs = {}; // written from elsewhere: re-read on next visit
-  await Promise.all([refresh(), route.name === 'project' && route.id ? loadProjectLog(route.id) : null]);
-  lastRefresh = Date.now();
-}
-
-/** The write already succeeded: a failed re-read must not be reported as a failed save. */
-async function reloadQuietly() {
-  try { await reload(); } catch (_) { toast('Guardado, pero no se pudo actualizar la vista', true); }
-  render();
-}
-
-/** Runs a mutation, confirms it, then refreshes in the background. */
+/** Online-only edit: sends queued captures first, runs the mutation, then syncs in the background. */
 async function act(fn, okMsg) {
   if (state.ui.busy) { toast('Guardando el cambio anterior…', false, true); return; }
   state.ui.busy = true;
   render();
+  if (sync.status === 'signin') showGate();
   toast('Guardando…', false, true);
   try {
-    await enqueue(fn);
+    await enqueue(async () => { await flush(); return fn(); });
     toast(okMsg || 'Guardado');
   } catch (e) {
     toast(`No se pudo guardar: ${e.message}`, true);
@@ -118,41 +114,36 @@ async function act(fn, okMsg) {
     state.ui.busy = false;
     render();
   }
-  await reloadQuietly();
+  runSync();
 }
 
-/** Optimistic completion: same domain rule as the server, reverted if the write fails. */
-async function complete(milestoneId, anchor, note, okMsg, onFail) {
-  const m = milestoneById(milestoneId);
-  if (!m || state.ui.saving.has(milestoneId)) return;
-  const entry = { id: uuid(), ts_client: nowLocalIso(), milestone_id: milestoneId, anchor: anchor || undefined, note: note || undefined };
-  const before = { ...m };
-  const r = completeMilestone(m, today(), m.kind === 'once' ? null : (anchor || m.anchor));
-  Object.assign(m, { status: r.status, next_due: r.next_due, last_done_at: r.last_done_at });
-  state.ui.saving.add(milestoneId);
-  render();
-  toast('Guardando…', false, true);
+/** Capture: safe on this device before it says so; sending happens in the background. */
+async function save(entry, okMsg) {
   try {
-    await enqueue(() => call('complete', entry));
-    toast(okMsg);
-  } catch (e) {
-    const current = milestoneById(milestoneId);
-    if (current) Object.assign(current, before);
-    onFail?.();
-    toast(`No se pudo guardar: ${e.message}`, true);
-    return;
-  } finally {
-    state.ui.saving.delete(milestoneId);
-    render();
+    await record(entry);
+    toast(navigator.onLine === false ? `${okMsg} · se enviará al reconectar` : okMsg);
+    return true;
+  } catch (_) {
+    toast('No se pudo guardar en este dispositivo', true);
+    return false;
   }
-  await reloadQuietly();
+}
+
+const recording = new Set();
+async function complete(milestoneId, anchor, note, okMsg) {
+  // Twice the same day is a double tap, not a second cycle.
+  if (recording.has(milestoneId) || pendingDone(milestoneId) === today()) return false;
+  recording.add(milestoneId);
+  const ok = await save({ type: 'done', milestone_id: milestoneId, project_id: milestoneById(milestoneId)?.project_id, anchor, note }, okMsg);
+  recording.delete(milestoneId);
+  return ok;
 }
 
 window.addEventListener('beforeunload', (e) => { if (pending) e.preventDefault(); });
 
 const clicks = {
   'open-project': (el) => { location.hash = `#project/${encodeURIComponent(el.dataset.id)}`; },
-  'register-review': () => act(() => call('review', { id: uuid(), ts_client: nowLocalIso() }), 'Revisión registrada'),
+  'register-review': () => save({ type: 'review' }, 'Revisión registrada'),
   'new-project': () => { state.ui.form = { type: 'project', id: null }; render(); },
   'edit-project': (el) => { state.ui.form = { type: 'project', id: el.dataset.id }; render(); },
   'archive-project': (el) => {
@@ -172,7 +163,7 @@ const clicks = {
   'cancel-confirm': () => { state.ui.confirmMilestone = null; render(); },
   complete: (el) => {
     state.ui.confirmMilestone = null;
-    complete(el.dataset.id, el.dataset.anchor, '', `Hecho · ${milestoneById(el.dataset.id)?.title || ''}`);
+    complete(el.dataset.id, el.dataset.anchor || null, '', `Hecho · ${milestoneById(el.dataset.id)?.title || ''}`);
   },
   reopen: (el) => act(() => call('upsertMilestone', { milestone: { id: el.dataset.id, status: 'open' } }), 'Hito reabierto'),
   'pick-project': (el) => {
@@ -185,25 +176,23 @@ const clicks = {
     c.milestoneId = c.milestoneId === el.dataset.id ? null : el.dataset.id;
     render();
   },
-  'capture-done': (el) => {
+  'capture-done': async (el) => {
     const c = state.ui.capture;
-    const title = milestoneById(c.milestoneId)?.title || '';
-    const note = c.note.trim();
-    const id = c.milestoneId;
-    c.note = '';
-    c.milestoneId = null;
-    complete(id, el.dataset.anchor, note, `Hecho · ${title}`, () => {
-      if (!c.note && !c.milestoneId) Object.assign(c, { note, milestoneId: id });
-    });
+    const id = c.milestoneId, note = c.note;
+    if (!await complete(id, el.dataset.anchor || null, note.trim(), `Hecho · ${milestoneById(id)?.title || ''}`)) return;
+    if (c.note === note) c.note = '';
+    if (c.milestoneId === id) c.milestoneId = null;
+    render();
   },
-  'save-note': () => {
+  'save-note': async () => {
     const c = state.ui.capture;
-    const note = c.note.trim();
-    if (!note || !c.projectId) return;
-    act(async () => {
-      await call('capture', { entries: [{ id: uuid(), ts_client: nowLocalIso(), type: 'note', project_id: c.projectId, note }] });
-      c.note = '';
-    }, 'Nota guardada');
+    const note = c.note;
+    if (!note.trim() || !c.projectId || recording.has('note')) return;
+    recording.add('note');
+    const ok = await save({ type: 'note', project_id: c.projectId, note: note.trim() }, 'Nota guardada');
+    recording.delete('note');
+    if (ok && c.note === note) c.note = '';
+    render();
   }
 };
 
@@ -212,6 +201,7 @@ const clicks = {
 async function enterVault() {
   if (route.name !== 'vault' || vault.status === 'open') return;
   const p = loadVault();
+  if (sync.status === 'signin') showGate();
   render();
   await p;
   render();
@@ -320,10 +310,14 @@ root.addEventListener('submit', (e) => {
   if (type === 'note') {
     const note = form.note.value.trim();
     if (!note) return;
-    act(async () => {
-      await call('capture', { entries: [{ id: uuid(), ts_client: nowLocalIso(), type: 'note', project_id: form.dataset.project, note }] });
-      root.querySelector('.compose')?.reset();
-    }, 'Nota guardada');
+    if (recording.has('note')) return;
+    recording.add('note');
+    save({ type: 'note', project_id: form.dataset.project, note }, 'Nota guardada').then((ok) => {
+      recording.delete('note');
+      const input = root.querySelector('.compose input');
+      if (ok && input?.value.trim() === note) input.value = '';
+      render();
+    });
     return;
   }
   if (type === 'vault-create' || type === 'vault-unlock') { submitPassphrase(form, type); return; }
@@ -333,13 +327,11 @@ root.addEventListener('submit', (e) => {
   if (type === 'project') {
     if (state.ui.busy) { toast('Guardando el cambio anterior…', false, true); return; }
     const project = { id: form.dataset.id || uuid(), ...data.project };
-    state.ui.form = null;
-    act(() => call('upsertProject', { project }), 'Proyecto guardado');
+    act(async () => { await call('upsertProject', { project }); state.ui.form = null; }, 'Proyecto guardado');
   } else if (type === 'milestone') {
     if (state.ui.busy) { toast('Guardando el cambio anterior…', false, true); return; }
     const milestone = { id: form.dataset.id || uuid(), project_id: form.dataset.project, ...data.milestone };
-    state.ui.form = null;
-    act(() => call('upsertMilestone', { milestone }), 'Hito guardado');
+    act(async () => { await call('upsertMilestone', { milestone }); state.ui.form = null; }, 'Hito guardado');
   }
 });
 
@@ -351,8 +343,7 @@ window.addEventListener('hashchange', async () => {
   render();
   enterVault();
   if (route.name === 'project' && route.id && !state.projectLogs[route.id]) {
-    try { await loadProjectLog(route.id); } catch (e) { toast(e.message, true); }
-    render();
+    await loadLog();
   }
 });
 
@@ -362,10 +353,86 @@ setInterval(() => {
   if (document.activeElement?.tagName !== 'INPUT' && !state.ui.form) render();
 }, 60000);
 
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState !== 'visible' || !state.snap || pending || Date.now() - lastRefresh < 5 * 60000) return;
-  try { await refresh(); lastRefresh = Date.now(); if (!state.ui.form) render(); } catch (_) { /* keep last snapshot */ }
+async function loadLog() {
+  const id = route.id;
+  try { await loadProjectLog(id); } catch (_) { /* the view says it is unavailable */ }
+  softRender();
+}
+
+/* ---------- sync triggers and status bar ---------- */
+
+const bar = document.createElement('div');
+bar.id = 'sync';
+bar.setAttribute('role', 'status');
+bar.hidden = true;
+root.before(bar);
+let newVersion = null;
+
+const count = (n) => `${n} por enviar`;
+
+function renderBar() {
+  const n = pendingEntries().length, failed = failedEntries();
+  const btn = (act, text, id = '') => `<button class="link-ul" data-act="${act}" data-id="${esc(id)}">${text}</button>`;
+  let line = '';
+  if (navigator.onLine === false || sync.status === 'offline') line = `Sin conexión${n ? ` · ${count(n)}` : ''}`;
+  else if (sync.status === 'signin') line = `Falta iniciar sesión${n ? ` · ${count(n)}` : ''} ${btn('sign-in', 'Entrar')}`;
+  else if (sync.status === 'error') line = `No se pudo sincronizar: ${esc(sync.error)}${n ? ` · ${count(n)}` : ''} ${btn('sync-now', 'Reintentar')}`;
+  else if (n) line = `Enviando · ${count(n)}`;
+  const parts = line ? [`<p class="num">${line}</p>`] : [];
+  for (const e of failed) {
+    const what = e.type === 'done' ? `Hecho · ${milestoneById(e.milestone_id)?.title || 'hito'}` : e.type === 'note' ? 'Nota' : 'Revisión';
+    parts.push(`<p><span class="shu">No aceptado:</span> ${esc(what)}${e.note ? ` · «${esc(e.note)}»` : ''} · ${esc(fmtShort(e.ts_client))} (${esc(e.error)}) ${btn('discard', 'Descartar', e.id)}</p>`);
+  }
+  if (newVersion) parts.push(`<p>Hay una versión nueva ${btn('update-app', 'Actualizar')}</p>`);
+  bar.innerHTML = parts.join('');
+  bar.hidden = !parts.length;
+}
+
+Object.assign(clicks, {
+  'sign-in': () => showGate(),
+  'sync-now': () => runSync(),
+  discard: (el) => {
+    if (window.confirm('¿Descartar esta captura? No se puede deshacer.')) discard(el.dataset.id).catch(() => toast('No se pudo descartar', true));
+  },
+  'update-app': () => {
+    if (pending) { toast('Guardando el cambio anterior…'); return; }
+    navigator.serviceWorker.addEventListener('controllerchange', () => location.reload(), { once: true });
+    newVersion.postMessage('activate');
+  }
 });
+bar.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-act]');
+  if (el) clicks[el.dataset.act](el);
+});
+
+async function syncNow() {
+  await runSync();
+  lastRefresh = Date.now();
+}
+
+window.addEventListener('online', syncNow);
+window.addEventListener('offline', renderBar);
+setInterval(() => {
+  if (pendingEntries().length && !isSyncing() && navigator.onLine !== false && sync.status !== 'signin') syncNow();
+}, 60000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || pending || isSyncing()) return;
+  if (pendingEntries().length || Date.now() - lastRefresh > 5 * 60000) syncNow();
+});
+
+async function registerWorker() {
+  const local = ['localhost', '127.0.0.1'].includes(location.hostname);
+  if (!('serviceWorker' in navigator) || (local && !new URLSearchParams(location.search).has('sw'))) return;
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js');
+    const offer = (w) => { if (w && navigator.serviceWorker.controller) { newVersion = w; renderBar(); } };
+    offer(reg.waiting);
+    reg.addEventListener('updatefound', () => {
+      const w = reg.installing;
+      w.addEventListener('statechange', () => { if (w.state === 'installed') offer(w); });
+    });
+  } catch (_) { /* the app works without it, only not offline */ }
+}
 
 // Overlay, not a replacement view: an expired session must not discard text being typed.
 function showGate(message = '') {
@@ -374,9 +441,10 @@ function showGate(message = '') {
   el.id = 'gate';
   el.innerHTML = `<div class="page"><section class="gate">
     <h1>Enso</h1><p>${esc(message || 'Inicia sesión con tu cuenta de Google para continuar.')}</p>
-    <div class="gis" id="gis"></div></section></div>`;
+    <div class="gis" id="gis"></div>${state.snap ? '<button class="btn-quiet later">Ahora no</button>' : ''}</section></div>`;
+  el.querySelector('.later')?.addEventListener('click', () => { hideGate(); cancelSignIn(); });
   document.body.append(el);
-  renderSignInButton(el.querySelector('#gis'));
+  renderSignInButton(el.querySelector('#gis')).catch((e) => { el.querySelector('p').textContent = e.message; });
 }
 
 function hideGate() {
@@ -384,26 +452,45 @@ function hideGate() {
 }
 
 // With pending calls the original request resumes by itself; otherwise start over.
-function onSignedIn({ pending }) {
+function onSignedIn({ pending: waiting }) {
   hideGate();
-  if (!pending && !state.snap) boot();
+  if (isSyncing()) sync.status = 'syncing';
+  renderBar();
+  if (!waiting) syncNow();
+}
+
+// With local data the app stays usable and the bar asks; a full gate only when there is nothing to
+// show or the owner is waiting for an online operation.
+function onNeedSignIn() {
+  if (!state.snap || state.ui.busy || vault.status === 'loading') { showGate(); return; }
+  sync.status = 'signin';
+  renderBar();
+}
+
+function onForbidden() {
+  rejectAccount();
+  showGate('Esta cuenta no es la dueña de Enso.');
 }
 
 async function boot() {
   root.innerHTML = '<div class="page"><p class="empty">Cargando…</p></div>';
-  try {
-    if (!MOCK) await initAuth({ needSignIn: () => showGate(), signedIn: onSignedIn });
-    await refresh();
-    lastRefresh = Date.now();
-    render();
-    if (route.name === 'project' && route.id) { await loadProjectLog(route.id); render(); }
-    enterVault();
-  } catch (e) {
-    if (e.code === 'forbidden' && !MOCK) {
-      rejectAccount();
-      return showGate('Esta cuenta no es la dueña de Enso.');
-    }
-    root.innerHTML = `<div class="page"><section class="gate"><h1>Enso</h1><p class="shu">${esc(e.message)}</p></section></div>`;
+  if (!MOCK) initAuth({ needSignIn: onNeedSignIn, signedIn: onSignedIn });
+  registerWorker();
+  await initSync({
+    changed: () => { softRender(); renderBar(); },
+    synced: () => {
+      if (route.name !== 'project') state.projectLogs = {}; // written from elsewhere: re-read on next visit
+      else if (route.id) loadLog();
+    },
+    forbidden: onForbidden
+  });
+  if (state.snap) enterVault();
+  const had = !!state.snap;
+  await syncNow();
+  if (!had && state.snap) enterVault();
+  if (!state.snap && !document.getElementById('gate')) {
+    root.innerHTML = `<div class="page"><section class="gate"><h1>Enso</h1><p class="shu">${esc(sync.error)}</p>
+      <button class="link-ul" data-act="sync-now">Reintentar</button></section></div>`;
   }
 }
 

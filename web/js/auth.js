@@ -3,13 +3,15 @@
 // One Tap with auto_select renews it; if Google suppresses the prompt the app shows the button.
 import { CLIENT_ID } from '../config.js';
 
+const GIS_URL = 'https://accounts.google.com/gsi/client';
+const GIS_TIMEOUT_MS = 10000;
 const STORE_KEY = 'enso.idtoken';
 let token = null;
 let exp = 0;          // seconds since epoch
 let waiters = [];
 let onNeedSignIn = () => {};
 let onSignedIn = () => {};
-let initialized = false;
+let ready = null;     // promise: GIS loaded and initialized
 
 function decodeExp(jwt) {
   try {
@@ -36,25 +38,30 @@ function restoreToken() {
   } catch (_) { /* storage blocked */ }
 }
 
-function waitForGis(timeoutMs = 10000) {
+const fail = (code, message) => Object.assign(new Error(message), { code });
+
+function loadGis() {
+  if (window.google?.accounts?.id) return Promise.resolve();
   return new Promise((resolve, reject) => {
-    const t0 = Date.now();
-    (function poll() {
-      if (window.google?.accounts?.id) return resolve();
-      if (Date.now() - t0 > timeoutMs) return reject(new Error('No se pudo cargar Google Identity'));
-      setTimeout(poll, 50);
-    })();
+    const el = document.createElement('script');
+    const no = () => { el.remove(); reject(fail('network', 'No se pudo cargar Google Identity')); };
+    const timer = setTimeout(no, GIS_TIMEOUT_MS);
+    el.src = GIS_URL;
+    el.onload = () => { clearTimeout(timer); resolve(); };
+    el.onerror = () => { clearTimeout(timer); no(); };
+    document.head.append(el);
   });
 }
 
-export async function initAuth({ needSignIn, signedIn }) {
+export function initAuth({ needSignIn, signedIn }) {
   onNeedSignIn = needSignIn;
   onSignedIn = signedIn;
-  if (initialized) return;
-  await waitForGis();
-  initialized = true;
   restoreToken();
-  google.accounts.id.initialize({
+}
+
+/** Loaded on demand: offline there is nothing to load, and a failure is retried on the next call. */
+function ensureGis() {
+  ready ??= loadGis().then(() => google.accounts.id.initialize({
     client_id: CLIENT_ID,
     auto_select: true,
     cancel_on_tap_outside: false,
@@ -64,9 +71,10 @@ export async function initAuth({ needSignIn, signedIn }) {
       const w = waiters;
       waiters = [];
       onSignedIn({ pending: w.length > 0 });
-      w.forEach((resolve) => resolve(token));
+      w.forEach((x) => x.resolve(token));
     }
-  });
+  })).catch((e) => { ready = null; throw e; });
+  return ready;
 }
 
 // FedCM no longer reports whether One Tap was displayed, so fall back to the explicit
@@ -78,19 +86,28 @@ function prompt() {
   setTimeout(() => { if (waiters.length) onNeedSignIn(); }, PROMPT_TIMEOUT_MS);
 }
 
-export function renderSignInButton(el) {
+export async function renderSignInButton(el) {
+  await ensureGis();
   google.accounts.id.renderButton(el, { theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', locale: 'es' });
 }
 
 export const isSignedIn = () => !!token && exp - Date.now() / 1000 > 60;
 
 /** Valid token (renewed when < 2 min left). */
-export function getToken() {
-  if (token && exp - Date.now() / 1000 > 120) return Promise.resolve(token);
-  return new Promise((resolve) => {
-    waiters.push(resolve);
+export async function getToken() {
+  if (token && exp - Date.now() / 1000 > 120) return token;
+  await ensureGis();
+  return new Promise((resolve, reject) => {
+    waiters.push({ resolve, reject });
     if (waiters.length === 1) prompt();
   });
+}
+
+/** The owner postponed signing in: whoever was waiting fails instead of hanging. */
+export function cancelSignIn() {
+  const w = waiters;
+  waiters = [];
+  w.forEach((x) => x.reject(fail('signin', 'Falta iniciar sesión')));
 }
 
 /** Called when the server rejects the token. */
@@ -101,5 +118,5 @@ export function invalidateToken() {
 /** Wrong account: forget it and stop One Tap from silently picking it again. */
 export function rejectAccount() {
   invalidateToken();
-  google.accounts.id.disableAutoSelect();
+  window.google?.accounts?.id.disableAutoSelect();
 }

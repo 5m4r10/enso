@@ -3,6 +3,7 @@
 import { esc, fmtShort, inDays, agoDays, kindLabel } from '../format.js';
 import { ensoSVG, timerSVG, seedOf } from '../enso.js';
 import { state, projectById, milestonesOf, openByDue, projectRing, lastActivityDays, timer, today, milestoneById } from '../store.js';
+import { pendingDone, sync } from '../sync.js';
 import { header } from './shell.js';
 import { projectForm, milestoneForm } from './forms.js';
 
@@ -33,6 +34,8 @@ function confirmRow(m) {
     <button class="btn-quiet" data-act="cancel-confirm">Cancelar</button></div>`;
 }
 
+const unsent = () => `<span class="saving">${sync.status === 'syncing' ? 'Guardando…' : 'Por enviar'}</span>`;
+
 function openRow(m, projectId) {
   if (state.ui.form?.type === 'milestone' && state.ui.form.id === m.id) return milestoneForm(m, projectId);
   const extra = m.kind === 'recurring' && m.last_done_at ? ` · hecho ${fmtShort(m.last_done_at)}` : '';
@@ -40,7 +43,7 @@ function openRow(m, projectId) {
   return `<article class="ms">
     <div><h3>${esc(m.title)}</h3><p class="kind">${esc(kindLabel(m) + extra)}</p></div>
     ${dueCell(m)}
-    <div class="acts">${state.ui.saving.has(m.id) ? '<span class="saving">Guardando…</span>' : confirming ? '' : `<button class="link-ul" data-act="confirm" data-id="${esc(m.id)}">Hecho</button>`}
+    <div class="acts">${pendingDone(m.id) === today() ? unsent() : confirming ? '' : `<button class="link-ul" data-act="confirm" data-id="${esc(m.id)}">Hecho</button>`}
       <button class="btn-quiet" data-act="edit-milestone" data-id="${esc(m.id)}">Editar</button></div>
     ${confirming ? confirmRow(m) : ''}
   </article>`;
@@ -50,7 +53,7 @@ function doneRow(m) {
   return `<article class="ms is-done">
     <div><h3>${esc(m.title)}</h3><p class="kind">${esc(kindLabel(m))}</p></div>
     <p class="due num">${esc(fmtShort(m.last_done_at || ''))}</p>
-    <div class="acts">${state.ui.saving.has(m.id) ? '<span class="saving">Guardando…</span>' : `<button class="btn-quiet" data-act="reopen" data-id="${esc(m.id)}">Reabrir</button>`}</div>
+    <div class="acts">${pendingDone(m.id) ? unsent() : `<button class="btn-quiet" data-act="reopen" data-id="${esc(m.id)}">Reabrir</button>`}</div>
   </article>`;
 }
 
@@ -63,7 +66,7 @@ function logItem(l) {
   else if (l.type === 'reschedule') body = `<span class="sys num">${title} · ${esc(l.meta?.from ? day(l.meta.from) : 'sin fecha')} → ${esc(l.meta?.to ? day(l.meta.to) : 'sin fecha')}</span>`;
   else if (l.type === 'vault') body = '<span class="sys">Bóveda actualizada</span>';
   else body = esc(l.note || '');
-  return `<li><p class="when num"><span>${esc(fmtShort(l.ts_client))}</span><span class="type">${TYPE[l.type] || l.type}</span></p>${body}</li>`;
+  return `<li><p class="when num"><span>${esc(fmtShort(l.ts_client))}</span><span class="type">${TYPE[l.type] || l.type}${l.unsent ? ' · por enviar' : ''}</span></p>${body}</li>`;
 }
 
 export function renderProject(id) {
@@ -74,7 +77,11 @@ export function renderProject(id) {
   const open = openByDue(p.id);
   const done = milestonesOf(p.id).filter((m) => m.status === 'done')
     .sort((a, b) => String(b.last_done_at).localeCompare(String(a.last_done_at)));
-  const logs = state.projectLogs[p.id];
+  const stored = state.projectLogs[p.id];
+  const mine = state.pendingLogs.filter((l) => l.project_id === p.id);
+  const ids = new Set(mine.map((l) => l.id));
+  const logs = [...mine, ...(stored || []).filter((l) => !ids.has(l.id))];
+  const logNote = stored ? '' : `<p class="empty">${sync.status === 'syncing' || sync.status === 'idle' ? 'Cargando registro…' : 'El registro completo necesita conexión.'}</p>`;
   const f = state.ui.form;
   const editingProject = f?.type === 'project' && f.id === p.id;
   const newMilestone = f?.type === 'milestone' && !f.id;
@@ -102,7 +109,7 @@ export function renderProject(id) {
           <input name="note" maxlength="2000" placeholder="Añadir nota…" autocomplete="off" aria-label="Nota">
           <button type="submit">Guardar</button>
         </form>
-        ${logs ? `<ul class="log">${logs.filter((l) => l.type !== 'review').map(logItem).join('') || '<li class="empty">Sin registros todavía.</li>'}</ul>` : '<p class="empty">Cargando registro…</p>'}
+        ${stored || mine.length ? `<ul class="log">${logs.filter((l) => l.type !== 'review').map(logItem).join('') || '<li class="empty">Sin registros todavía.</li>'}</ul>` : ''}${logNote}
       </aside>
     </div>
   </div>`;
