@@ -342,7 +342,12 @@ root.addEventListener('submit', (e) => {
   if (type === 'project') {
     if (state.ui.busy) { toast('Guardando el cambio anterior…', false, true); return; }
     const project = { id: form.dataset.id || uuid(), ...data.project };
-    act(async () => { await call('upsertProject', { project }); state.ui.form = null; }, 'Proyecto guardado');
+    act(async () => {
+      const saved = await call('upsertProject', { project });
+      // An older deployed backend ignores the field: do not report it as saved.
+      if ((saved.keep_url || null) !== project.keep_url) throw new Error('el servidor aún no admite la nota de Keep; lo demás sí se guardó');
+      state.ui.form = null;
+    }, 'Proyecto guardado');
   } else if (type === 'milestone') {
     if (state.ui.busy) { toast('Guardando el cambio anterior…', false, true); return; }
     const milestone = { id: form.dataset.id || uuid(), project_id: form.dataset.project, ...data.milestone };

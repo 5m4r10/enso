@@ -1,4 +1,5 @@
 // Inline forms (no modals): project and milestone create/edit.
+/* global isKeepNoteUrl */
 import { esc } from '../format.js';
 
 const opt = (v, label, cur) => `<option value="${v}"${v === cur ? ' selected' : ''}>${label}</option>`;
@@ -12,6 +13,8 @@ export function projectForm(p) {
         <input name="name" required maxlength="120" value="${esc(p?.name || '')}" autocomplete="off"></label>
       <label class="field"><span class="label">Sin movimiento a los (días)</span>
         <input name="stale_days" type="number" min="1" max="365" inputmode="numeric" placeholder="14" value="${esc(p?.stale_days ?? '')}"></label>
+      <label class="field wide"><span class="label">Nota de Keep (opcional)</span>
+        <input name="keep_url" type="text" inputmode="url" maxlength="300" placeholder="https://keep.google.com/#NOTE/…" value="${esc(p?.keep_url || '')}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
     </div>
     <div class="row-acts">
       <button class="btn-line" type="submit">Guardar</button>
@@ -61,7 +64,9 @@ export function readForm(form) {
   const s = (k) => (fd.get(k) ?? '').toString().trim();
   if (form.dataset.form === 'project') {
     const stale = s('stale_days');
-    return { project: { name: s('name'), stale_days: stale ? Number(stale) : null } };
+    const keep = s('keep_url') || null;
+    if (keep && !isKeepNoteUrl(keep)) return { error: 'Pega la dirección de una nota de Keep (termina en #NOTE/… o #LIST/…).' };
+    return { project: { name: s('name'), stale_days: stale ? Number(stale) : null, keep_url: keep } };
   }
   const kind = form.querySelector('[name=kind]').value;
   const m = { title: s('title'), kind };

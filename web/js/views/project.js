@@ -94,7 +94,7 @@ export function renderProject(id) {
       <div><h1>${esc(p.name)}</h1>
         <p class="meta num"><span>${esc(counts)}</span><span>último registro ${esc(agoDays(idle ?? 0))}</span><span>sin movimiento a los ${p.stale_days || DEFAULT_STALE} días</span></p>
       </div>
-      <div class="tools">${keepLink(p.name)}<button class="btn-quiet" data-act="edit-project" data-id="${esc(p.id)}">Editar proyecto</button></div>
+      <div class="tools">${keepLink(p)}<button class="btn-quiet" data-act="edit-project" data-id="${esc(p.id)}">Editar proyecto</button></div>
     </section>`}
     <div class="grid project-grid">
       <section>

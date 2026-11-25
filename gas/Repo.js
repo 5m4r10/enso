@@ -5,7 +5,7 @@
  */
 
 var SCHEMA = {
-  projects: ['id', 'name', 'stale_days', 'status', 'sort', 'created_at'],
+  projects: ['id', 'name', 'stale_days', 'status', 'sort', 'created_at', 'keep_url'],
   milestones: ['id', 'project_id', 'title', 'kind', 'due_date', 'interval_n', 'interval_unit',
     'anchor', 'next_due', 'last_done_at', 'status', 'gcal_event_id'],
   log: ['id', 'ts_client', 'ts_server', 'project_id', 'milestone_id', 'type', 'note', 'meta'],

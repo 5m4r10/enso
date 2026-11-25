@@ -168,6 +168,7 @@ function actionUpsertProject_(payload) {
     if (has_(input, 'stale_days')) p.stale_days = input.stale_days === null || input.stale_days === '' ? null : Number(input.stale_days);
     if (has_(input, 'status')) p.status = input.status;
     if (has_(input, 'sort')) p.sort = input.sort === null ? null : Number(input.sort);
+    if (has_(input, 'keep_url')) p.keep_url = input.keep_url === '' ? null : input.keep_url;
     if (p.sort === undefined || p.sort === null) p.sort = rows.length;
 
     require_(p.name && p.name.length <= 120, 'project.name is required (max 120 chars)');
@@ -175,6 +176,7 @@ function actionUpsertProject_(payload) {
       (Number.isInteger(p.stale_days) && p.stale_days >= 1 && p.stale_days <= 365), 'stale_days must be 1..365');
     require_(p.status === 'active' || p.status === 'archived', 'status must be active | archived');
     require_(isFinite(p.sort), 'sort must be a number');
+    if (has_(input, 'keep_url')) require_(p.keep_url === null || isKeepNoteUrl(p.keep_url), 'keep_url must be a Google Keep note address');
 
     writeRow_('projects', p);
     if (existing && existing.status !== p.status) syncProjectMilestones_(p);

@@ -101,6 +101,11 @@ function isOverdue(m, today) {
 
 /* ---------- project rules ---------- */
 
+/** Address of one Google Keep note or list, as copied from keep.google.com. */
+function isKeepNoteUrl(s) {
+  return typeof s === 'string' && /^https:\/\/keep\.google\.com\/(u\/\d{1,2}\/)?#(NOTE|LIST)\/[A-Za-z0-9._-]{1,200}$/.test(s);
+}
+
 /**
  * Last activity = latest activity-log ts for the project (vault/reschedule excluded),
  * falling back to its creation date.
@@ -238,7 +243,7 @@ function timerOf(dueIso, nowLocalIso) {
 /* ---------- Node export (ignored by browser <script> and Apps Script) ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    parseISO: parseISO, toISO: toISO, daysBetween: daysBetween, addInterval: addInterval,
+    isKeepNoteUrl: isKeepNoteUrl, parseISO: parseISO, toISO: toISO, daysBetween: daysBetween, addInterval: addInterval,
     completeMilestone: completeMilestone, previewCompletion: previewCompletion,
     dueOf: dueOf, isOverdue: isOverdue, countsAsActivity: countsAsActivity,
     lastActivity: lastActivity, isStale: isStale,

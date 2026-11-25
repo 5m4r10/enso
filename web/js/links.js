@@ -1,4 +1,5 @@
-// Links to the owner's other apps. They carry no Enso data except the project name (Keep label).
+// Links to the owner's other apps. They carry no Enso data except the project name or its Keep note.
+/* global isKeepNoteUrl */
 import { esc } from './format.js';
 import { brushIcon } from './enso.js';
 
@@ -8,11 +9,12 @@ const NEW_TAB = ' target="_blank" rel="noopener noreferrer"';
 const NOTE = brushIcon('note');
 const SHIELD = brushIcon('shield');
 
-/** The Keep label must be named exactly like the project. */
-export const keepUrl = (label) => `https://keep.google.com/#label/${encodeURIComponent(label)}`;
+// The Android app opens a note address but ignores labels (tested): without a note, the link goes to
+// the label named like the project, which the app shows as its home.
+export const keepUrl = (p) => isKeepNoteUrl(p.keep_url) ? p.keep_url : `https://keep.google.com/#label/${encodeURIComponent(p.name)}`;
 
-export const keepLink = (label) =>
-  `<a class="ext" href="${esc(keepUrl(label))}"${NEW_TAB} aria-label="Notas de ${esc(label)} en Google Keep">${NOTE}Keep</a>`;
+export const keepLink = (p) =>
+  `<a class="ext" href="${esc(keepUrl(p))}"${NEW_TAB} aria-label="Notas de ${esc(p.name)} en Google Keep">${NOTE}Keep</a>`;
 
 // Android: /redirect-connector is the only https path Bitwarden's app accepts from a browser; without
 // parameters it just opens the app. If the app is missing, the web vault opens.

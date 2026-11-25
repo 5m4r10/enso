@@ -30,7 +30,7 @@ function projectRow(p, staleIds) {
   return `<article class="project" data-act="open-project" data-id="${esc(p.id)}" tabindex="0">
     ${ensoSVG({ size: 44, progress: ring.progress, state: ring.state, seed: seedOf(p.id) })}
     <div>
-      <h3>${esc(p.name)} <span class="count num">${esc(ring.label)}</span>${keepLink(p.name)}</h3>
+      <h3>${esc(p.name)} <span class="count num">${esc(ring.label)}</span>${keepLink(p)}</h3>
       <p class="last${stale ? ' is-stale' : ''}">${lastText}</p>
     </div>
     <ul class="upcoming">${ups || '<li class="empty">Sin fechas próximas</li>'}</ul>

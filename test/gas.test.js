@@ -197,6 +197,26 @@ test('gas/Domain.js is in sync with web/domain.js', () => {
   assert.equal(gen.replace(/^[^\n]*\n/, ''), src, 'run scripts/sync-domain.ps1');
 });
 
+test('keep_url: validated, optional, kept by partial edits; setup migrates an existing sheet', () => {
+  const env = boot();
+  const url = 'https://keep.google.com/u/0/#NOTE/1AbC-d_9.x';
+  const p = seedProject(env, { keep_url: url });
+  assert.equal(p.keep_url, url);
+  for (const bad of ['javascript:alert(1)', 'http://keep.google.com/#NOTE/a', 'https://keep.google.com.evil.com/#NOTE/a',
+    'https://keep.google.com/#label/x', url + '"><b>', 7]) {
+    assert.equal(env.post('upsertProject', { project: { id: p.id, keep_url: bad } }).error.code, 'bad_request');
+  }
+  assert.equal(env.ok('upsertProject', { project: { id: p.id, name: 'Otra' } }).keep_url, url);
+  assert.equal(env.ok('upsertProject', { project: { id: p.id, keep_url: null } }).keep_url, null);
+
+  const sh = env.sheet('projects'), col = sh.data[0].indexOf('keep_url');
+  sh.data.forEach((row) => row.splice(col, 1)); // sheet as it was before this field
+  env.ctx.setup();
+  assert.deepEqual([...sh.data[0]], [...env.ctx.SCHEMA.projects]);
+  assert.equal(env.ok('snapshot', {}).projects[0].name, 'Otra');
+  assert.equal(env.ok('upsertProject', { project: { id: p.id, keep_url: url } }).keep_url, url);
+});
+
 test('setup is idempotent: sheets, headers, meta, calendar, triggers', () => {
   const { ctx, state } = makeEnv();
   ctx.setup();
