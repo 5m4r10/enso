@@ -128,7 +128,7 @@ svg.timer.inline { display: inline-block; vertical-align: -3px; margin-right: 8p
 .hero .tools { margin-left: auto; align-self: flex-start; display: flex; gap: 20px; white-space: nowrap; }
 .ext { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-s); font-weight: 400; letter-spacing: 0; color: var(--sumi-2); }
 .ext:hover { color: var(--sumi); }
-.ext svg { fill: none; stroke: currentColor; stroke-width: 1.25; flex: none; }
+.ext svg { fill: currentColor; flex: none; }
 .project h3 .ext { padding: 4px 8px; margin: -4px 0; }
 .grid.project-grid { grid-template-columns: minmax(0, 1fr) 320px; }
 

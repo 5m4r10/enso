@@ -1,12 +1,12 @@
 // Links to the owner's other apps. They carry no Enso data except the project name (Keep label).
 import { esc } from './format.js';
+import { brushIcon } from './enso.js';
 
 const ANDROID = /Android/i.test(navigator.userAgent);
 const NEW_TAB = ' target="_blank" rel="noopener noreferrer"';
 
-const svg = (d) => `<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">${d}</svg>`;
-const NOTE = svg('<path d="M3 2.5h10v7l-4 4H3zM13 9.5H9v4"/>');
-const SHIELD = svg('<path d="M8 1.5l5 1.8v4.2c0 3.2-2 5.6-5 7-3-1.4-5-3.8-5-7V3.3z"/>');
+const NOTE = brushIcon('note');
+const SHIELD = brushIcon('shield');
 
 /** The Keep label must be named exactly like the project. */
 export const keepUrl = (label) => `https://keep.google.com/#label/${encodeURIComponent(label)}`;

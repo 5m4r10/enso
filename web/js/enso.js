@@ -35,34 +35,99 @@ function grainAt(t) {
   return k * k * (3 - 2 * k);
 }
 
-function brushPath(c, r, from, sweep, wMax, seed, grain) {
-  const len = rad(sweep) * r;
-  const n = Math.max(12, Math.ceil(sweep / 3), grain ? Math.ceil(len / 1.3) : 0);
+// Brush ribbon along samples {x, y, nx, ny, t} (unit normal, t 0..1): pressure profile, rough tips.
+function ribbon(samples, wMax, seed, grain) {
+  const n = samples.length - 1;
   const at = (i) => {
-    const t = i / n, a = from + sweep * t;
-    const rr = r * (1 + 0.025 * Math.sin(seed + rad(a) * 2) + 0.012 * Math.sin(seed * 1.7 + rad(a) * 5));
-    const w = wMax * pressure(t);
-    return { a, rr, w, g: grain ? w * 0.16 * grainAt(t) : 0 };
+    const s = samples[i], w = wMax * pressure(s.t);
+    return { ...s, w, g: grain ? w * 0.16 * grainAt(s.t) : 0 };
   };
   const outer = [], inner = [];
   for (let i = 0; i <= n; i++) {
-    const { a, rr, w, g } = at(i);
-    outer.push(pt(c, rr + w / 2 + g * noise(i, seed), a));
-    inner.push(pt(c, rr - w / 2 + g * noise(i + 900, seed), a));
+    const { x, y, nx, ny, w, g } = at(i);
+    const a = w / 2 + g * noise(i, seed), b = -w / 2 + g * noise(i + 900, seed);
+    outer.push([x + nx * a, y + ny * a]);
+    inner.push([x + nx * b, y + ny * b]);
   }
   // Rounded tips: half circle of k points, roughened when grain is on.
   const cap = (i, dir) => {
-    const { a, rr, w, g } = at(i);
+    const { x, y, nx, ny, w, g } = at(i);
     const pts = [], k = 7;
     for (let j = 1; j < k; j++) {
-      const phi = Math.PI * j / k, h = w / 2;
-      const along = dir * (h * Math.sin(phi) + g * noise(j + 70 + i, seed));
-      pts.push(pt(c, rr + dir * h * Math.cos(phi), a + along / rr * 180 / Math.PI));
+      const phi = Math.PI * j / k, across = dir * w / 2 * Math.cos(phi);
+      const along = dir * (w / 2 * Math.sin(phi) + g * noise(j + 70 + i, seed));
+      pts.push([x + nx * across - ny * along, y + ny * across + nx * along]);
     }
     return pts;
   };
   const all = [...outer, ...cap(n, 1), ...inner.reverse(), ...cap(0, -1)];
   return `M${all.map((p) => `${f(p[0])} ${f(p[1])}`).join(' L')} Z`;
+}
+
+function brushPath(c, r, from, sweep, wMax, seed, grain) {
+  const n = Math.max(12, Math.ceil(sweep / 3), grain ? Math.ceil(rad(sweep) * r / 1.3) : 0);
+  const samples = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, a = from + sweep * t;
+    const rr = r * (1 + 0.025 * Math.sin(seed + rad(a) * 2) + 0.012 * Math.sin(seed * 1.7 + rad(a) * 5));
+    const [x, y] = pt(c, rr, a);
+    samples.push({ x, y, nx: Math.cos(rad(a)), ny: Math.sin(rad(a)), t });
+  }
+  return ribbon(samples, wMax, seed, grain);
+}
+
+/** Any stroke with the ensō brush. points: polyline whose corners are rounded by `round`. */
+function brushStroke(points, { width, seed, round = 1.6, wobble = 0.09 }) {
+  const path = [points[0]];
+  for (let i = 1; i < points.length - 1; i++) {
+    const [p, q, s] = [points[i - 1], points[i], points[i + 1]];
+    const toward = (o) => {
+      const d = Math.hypot(o[0] - q[0], o[1] - q[1]), k = Math.min(round, d / 2) / d;
+      return [q[0] + (o[0] - q[0]) * k, q[1] + (o[1] - q[1]) * k];
+    };
+    const a = toward(p), b = toward(s);
+    for (let j = 0; j <= 8; j++) {
+      const u = j / 8, v = 1 - u;
+      path.push([v * v * a[0] + 2 * v * u * q[0] + u * u * b[0], v * v * a[1] + 2 * v * u * q[1] + u * u * b[1]]);
+    }
+  }
+  path.push(points.at(-1));
+  const len = [0];
+  for (let i = 1; i < path.length; i++) len.push(len[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+  const total = len.at(-1), n = Math.max(12, Math.ceil(total / 0.5));
+  const pos = (d) => {
+    let i = 1;
+    while (i < path.length - 1 && len[i] < d) i++;
+    const k = (d - len[i - 1]) / (len[i] - len[i - 1] || 1);
+    return [path[i - 1][0] + (path[i][0] - path[i - 1][0]) * k, path[i - 1][1] + (path[i][1] - path[i - 1][1]) * k];
+  };
+  const samples = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, d = total * t;
+    const [x, y] = pos(d), a = pos(Math.max(0, d - 0.4)), b = pos(Math.min(total, d + 0.4));
+    const h = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
+    const nx = (b[1] - a[1]) / h, ny = -(b[0] - a[0]) / h;
+    const o = wobble * (Math.sin(seed + d * 0.35) + 0.5 * Math.sin(seed * 1.7 + d * 0.8));
+    samples.push({ x: x + nx * o, y: y + ny * o, nx, ny, t });
+  }
+  return ribbon(samples, width, seed, false);
+}
+
+/* Icons, 16 × 16 units, drawn with the same brush: [width, points]. */
+const ICONS = {
+  // Sheet with a cut corner, left open like the ensō, and two written lines.
+  note: [
+    [1.35, [[9.2, 13.6], [13.4, 9.4], [13.4, 2.4], [2.6, 2.4], [2.6, 13.6], [7.4, 13.6]]],
+    [1.2, [[5.4, 6.1], [10.6, 6.0]]],
+    [1.2, [[5.4, 9.1], [8.6, 9.0]]]
+  ],
+  // One stroke, left open before it closes.
+  shield: [[1.4, [[5.6, 2.7], [8, 1.5], [13.3, 3.3], [13.1, 8.2], [11.3, 11.9], [8, 14.5], [4.7, 11.9], [2.9, 8.2], [2.7, 4.6]]]]
+};
+
+export function brushIcon(name, size = 20) {
+  const d = ICONS[name].map(([width, points], i) => brushStroke(points, { width, seed: 2.3 + i * 1.9 })).join(' ');
+  return `<svg width="${size}" height="${size}" viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
 const widthFor = (size) => (size >= 80 ? 7 : size >= 40 ? 4.4 : size >= 20 ? 2.8 : 2.3);
